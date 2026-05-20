@@ -341,3 +341,86 @@ def bowler_figures(name: str):
         "economy": economy
     }
 
+@app.get("/partnership/{match_id}")
+def partnership_tracker(match_id: int):
+
+    db: Session = SessionLocal()
+
+    deliveries = db.query(DeliveryModel).filter(
+        DeliveryModel.match_id == match_id
+    ).all()
+
+    total_runs = sum(d.runs for d in deliveries)
+
+    total_balls = len([
+        d for d in deliveries
+        if d.extra_type not in ["wide", "no-ball"]
+    ])
+
+    return {
+        "match_id": match_id,
+        "partnership_runs": total_runs,
+        "balls_faced": total_balls
+    }
+
+@app.get("/match-summary/{match_id}")
+def match_summary(match_id: int):
+
+    db: Session = SessionLocal()
+
+    deliveries = db.query(DeliveryModel).filter(
+        DeliveryModel.match_id == match_id
+    ).all()
+
+    total_runs = sum(d.runs for d in deliveries)
+
+    wickets = len([
+        d for d in deliveries
+        if d.wicket
+    ])
+
+    fall_of_wickets = []
+
+    current_score = 0
+
+    for d in deliveries:
+
+        current_score += d.runs
+
+        if d.wicket:
+
+            fall_of_wickets.append({
+                "player": d.wicket,
+                "score": current_score
+            })
+
+    return {
+        "final_score": f"{total_runs}/{wickets}",
+        "fall_of_wickets": fall_of_wickets,
+        "player_of_match": "To be decided"
+    }
+
+@app.get("/head-to-head")
+def head_to_head(teamA: str, teamB: str):
+
+    db: Session = SessionLocal()
+
+    matches = db.query(MatchModel).filter(
+        (
+            (MatchModel.teamA == teamA) &
+            (MatchModel.teamB == teamB)
+        ) |
+        (
+            (MatchModel.teamA == teamB) &
+            (MatchModel.teamB == teamA)
+        )
+    ).all()
+
+    total_matches = len(matches)
+
+    return {
+        "teamA": teamA,
+        "teamB": teamB,
+        "matches_played": total_matches
+    }
+
