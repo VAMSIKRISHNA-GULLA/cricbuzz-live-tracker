@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: cricbuzz-api
+
+spec:
+  replicas: 2
+
+  selector:
+    matchLabels:
+      app: cricbuzz-api
+
+  template:
+    metadata:
+      labels:
+        app: cricbuzz-api
+
+    spec:
+      containers:
+        - name: cricbuzz-api
+
+          image: cricbuzz-api
+
+          imagePullPolicy: Never
+
+          ports:
+            - containerPort: 8000
+
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8000
+
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8000
+
+            initialDelaySeconds: 5
+            periodSeconds: 5

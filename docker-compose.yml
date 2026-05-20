@@ -1,0 +1,29 @@
+version: '3.9'
+
+services:
+
+  api:
+    build: .
+    container_name: cricbuzz-api
+
+    ports:
+      - "8000:8000"
+
+    volumes:
+      - .:/app
+
+    depends_on:
+      - db
+
+  db:
+    image: postgres
+
+    container_name: cricbuzz-db
+
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+      POSTGRES_DB: cricbuzz
+
+    ports:
+      - "5432:5432"

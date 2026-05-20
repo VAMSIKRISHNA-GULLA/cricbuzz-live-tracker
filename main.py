@@ -151,6 +151,77 @@ def record_delivery(delivery: Delivery):
         return {
             "error": "This ball already exists"
         }
+    deliveries_in_over = db.query(DeliveryModel).filter(
+        DeliveryModel.match_id == delivery.match_id,
+        DeliveryModel.over == delivery.over
+    ).all()
+
+    legal_balls = sum(
+        1 for d in deliveries_in_over
+        if d.extra_type not in ["wide", "no-ball"]
+    )
+
+    current_delivery_is_legal = delivery.extra_type not in ["wide", "no-ball"]
+
+    if legal_balls >= 6 and current_delivery_is_legal:
+        return {
+            "error": "Over already completed with 6 legal deliveries"
+        }
+
+    match = db.query(MatchModel).filter(
+        MatchModel.id == delivery.match_id
+    ).first()
+
+    deliveries = db.query(DeliveryModel).filter(
+        DeliveryModel.match_id == delivery.match_id
+    ).all()
+
+    wickets = sum(
+        1 for d in deliveries
+        if d.wicket
+    )
+
+    legal_balls = sum(
+        1 for d in deliveries
+        if d.extra_type not in ["wide", "no-ball"]
+    )
+
+    if match.format == "T20" and legal_balls >= 120:
+        return {
+            "error": "Innings completed for T20"
+        }
+
+    if match.format == "ODI" and legal_balls >= 300:
+        return {
+            "error": "Innings completed for ODI"
+        }
+
+    if wickets >= 10:
+        return {
+            "error": "All wickets are down"
+        }
+
+    bowler_deliveries = db.query(DeliveryModel).filter(
+        DeliveryModel.match_id == delivery.match_id,
+        DeliveryModel.bowler == delivery.bowler
+    ).all()
+
+    bowler_legal_balls = sum(
+        1 for d in bowler_deliveries
+        if d.extra_type not in ["wide", "no-ball"]
+    )
+
+    bowler_overs = bowler_legal_balls / 6
+
+    if match.format == "T20" and bowler_overs >= 4:
+        return {
+            "error": "Bowler exceeded maximum overs limit"
+        }
+
+    if match.format == "ODI" and bowler_overs >= 10:
+        return {
+            "error": "Bowler exceeded maximum overs limit"
+        }
 
     new_delivery = DeliveryModel(
         match_id=delivery.match_id,
@@ -212,3 +283,61 @@ def get_scorecard(match_id: int):
         "overs": overs,
         "run_rate": run_rate
     }
+
+@app.get("/batsman/{name}")
+def batsman_scorecard(name: str):
+
+    db: Session = SessionLocal()
+
+    deliveries = db.query(DeliveryModel).filter(
+        DeliveryModel.batsman == name
+    ).all()
+
+    runs = sum(delivery.runs for delivery in deliveries)
+
+    balls = len(deliveries)
+
+    return {
+        "batsman": name,
+        "runs": runs,
+        "balls": balls
+    }
+
+@app.get("/bowler/{name}")
+def bowler_figures(name: str):
+
+    db: Session = SessionLocal()
+
+    deliveries = db.query(DeliveryModel).filter(
+        DeliveryModel.bowler == name
+    ).all()
+
+    runs_conceded = sum(delivery.runs for delivery in deliveries)
+
+    wickets = sum(
+        1 for delivery in deliveries
+        if delivery.wicket
+    )
+
+    legal_balls = sum(
+        1 for delivery in deliveries
+        if delivery.extra_type not in ["wide", "no-ball"]
+    )
+
+    overs = f"{legal_balls // 6}.{legal_balls % 6}"
+
+    overs_float = legal_balls / 6
+
+    if overs_float > 0:
+        economy = round(runs_conceded / overs_float, 2)
+    else:
+        economy = 0
+
+    return {
+        "bowler": name,
+        "overs": overs,
+        "runs_conceded": runs_conceded,
+        "wickets": wickets,
+        "economy": economy
+    }
+
